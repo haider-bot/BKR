@@ -12,8 +12,6 @@ wonderful_feynman <- текущее
 
 4 -> Крепеж, чтоб не слетали камеры
 
-ж -> отображение разных датчиков БПЛА включа gps
-
 Camera Type	ImageType
 Scene (RGB)	0
 DepthPlanar	1
