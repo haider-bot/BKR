@@ -1,0 +1,92 @@
+ААААААААААААА Rename кто делать будет?
+
+wonderful_feynman <- текущее
+
+hot_key (типо горячий ключ)
+
+1 -> запуск камеры ЧЕРНАЯ
+
+2 -> Запуск Lidar
+
+3 -> POV камера 4K ULTRA HD 5000FPS 
+
+4 -> Крепеж, чтоб не слетали камеры
+
+ж -> отображение разных датчиков БПЛА включа gps
+
+Camera Type	ImageType
+Scene (RGB)	0
+DepthPlanar	1
+DepthPerspective	2
+DepthVis	3
+DisparityNormalized	4
+Segmentation	5
+SurfaceNormals	6
+Infrared	7
+OpticalFlow	8
+OpticalFlowVis	9
+
+Модель БПЛА:
+
+Основная -> Freefly Alta X (текущая)
+
+Под кастомку -> Holybro S500
+
+
+Локации:
+
+Для теста большой дистанции -> Blocks (но сомнительно)
+
+Для тестов камеры, лидара, Gps -> Nordic Forest
+
+Для условных тестов работоспособности -> City Block (тест обхода зданий, город)
+
+
+Sensor:
+
+Resolution -> взять более хорошое разрешение камеры, Fow тот же, 1280 x 720
+
+Подключить -> Lidar
+
+Подключить -> Distance (вроде отрисовка, но Draw Debug Points отвечает за трасеры, так что хз)
+
+
+Модули:
+
+Navigation
+
+-> Visual Servoing (ИИ камера)
+
+-> Inspection (иследование объектов по пути)
+
+Object Detection
+
+-> GroundingDINO (детект объектов, камера)
+
+-> RT-DETR (более шустрый детект)
+
+Segmentation (понимание текста, локализация объектов)
+
+-> Segment Anything 2
+
+-> GroundedSAM
+
+Monocular Depth (на всякий случай)
+
+-> MiDaS (катра глубины)
+
+-> ZoeDepth (альтернатива, карман не тянет)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
