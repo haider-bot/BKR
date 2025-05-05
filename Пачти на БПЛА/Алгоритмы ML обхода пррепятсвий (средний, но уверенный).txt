@@ -1,0 +1,110 @@
+import numpy as np
+from math import cos, sin
+from sklearn.cluster import DBSCAN
+
+print("Начинаю тестовый полёт...")
+
+# Функция для определения наличия препятствий рядом с дроном
+def is_obstacle_near(current_pos, obstacles, threshold=2.0):
+    for obstacle in obstacles:
+        dist = np.linalg.norm(np.array([current_pos.x_val, current_pos.y_val]) - obstacle[:2])
+        if dist < threshold:
+            return True, dist
+    return False, None
+
+# Функция для поиска безопасного направления
+def find_safe_direction(current_pos, obstacles, radius=5.0, angle_step=15):
+    best_point = None
+    min_density = float('inf')
+
+    for angle in range(0, 360, angle_step):
+        rad = np.deg2rad(angle)
+        test_x = current_pos.x_val + radius * cos(rad)
+        test_y = current_pos.y_val + radius * sin(rad)
+
+        density = 0
+        for obs in obstacles:
+            dist = np.linalg.norm(np.array([test_x, test_y]) - obs[:2])
+            if dist < 2.0:
+                density += 1
+
+        if density < min_density:
+            min_density = density
+            best_point = airgen.Vector3r(test_x, test_y, current_pos.z_val)
+
+    return best_point
+
+# Функция для расчёта угла поворота между точками
+def calculate_heading(p1, p2):
+    dx = p2.x_val - p1.x_val
+    dy = p2.y_val - p1.y_val
+    return np.degrees(np.arctan2(dy, dx))
+
+# ===== Основной маршрут =====
+
+for i, target_point in enumerate(trajectory):
+    while True:
+        current_pos = client.getMultirotorState().kinematics_estimated.position
+        lidar_data = client.getLidarData()
+        points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
+        rr.log('lidar/points', rr.Points3D(points))
+
+        above_ground = points[points[:, 2] > 0.2]
+
+        if above_ground.shape[0] == 0:
+            print("⚠️ Нет точек выше уровня земли — пропускаю кластеризацию")
+            obstacle_centers = np.empty((0, 3))
+        else:
+            clustering = DBSCAN(eps=1.0, min_samples=10).fit(above_ground[:, :2])
+            labels = clustering.labels_
+
+            obstacle_centers = []
+            for label in set(labels):
+                if label == -1:
+                    continue
+                cluster_points = above_ground[labels == label]
+                center = cluster_points.mean(axis=0)
+                obstacle_centers.append(center)
+
+            obstacle_centers = np.array(obstacle_centers)
+
+        rr.log("lidar/obstacles", rr.Points3D(obstacle_centers))
+
+        danger, dist = is_obstacle_near(current_pos, obstacle_centers)
+        if danger:
+            print(f"⚠️ Обнаружено препятствие на расстоянии {dist:.1f} м. Ищу обходной путь...")
+            safe_point = find_safe_direction(current_pos, obstacle_centers)
+            if safe_point:
+                heading = calculate_heading(current_pos, safe_point)
+                print("Перестроен маршрут. Лечу к безопасной точке...")
+                client.rotateToYawAsync(heading, 3).join()  # Уменьшена скорость поворота в 3 раза
+                client.moveToPositionAsync(safe_point.x_val, safe_point.y_val, safe_point.z_val, 1.5).join()  # Уменьшена скорость движения в 2 раза
+                print("Достиг безопасной точки. Возобновляю маршрут.")
+                continue
+        break
+
+    heading = calculate_heading(current_pos, target_point)
+    client.rotateToYawAsync(heading, 3).join()  # Уменьшена скорость поворота в 3 раза
+    client.moveToPositionAsync(target_point.x_val, target_point.y_val, target_point.z_val, 1.5).join()  # Уменьшена скорость движения в 2 раза
+
+# ======= Завершающая посадка =======
+print("Добрался до конечной точки. Осуществляю посадку...")
+
+final_pos = client.getMultirotorState().kinematics_estimated.position
+points_raw = client.getLidarData().point_cloud
+
+if len(points_raw) > 0:
+    points = np.array(points_raw, dtype=np.float32).reshape(-1, 3)
+    ground_points = points[points[:, 2] < 0.5]
+    if len(ground_points) > 0:
+        min_z = float(np.min(ground_points[:, 2]) - 0.1)
+    else:
+        min_z = -3.0
+else:
+    min_z = -3.0
+
+# Плавное снижение к земле
+client.moveToPositionAsync(final_pos.x_val, final_pos.y_val, min_z, 0.8).join()
+
+client.landAsync().join()
+print("Дрон успешно приземлился! Тестовый полёт завершён.")
